@@ -1,15 +1,13 @@
 import puppeteer from 'puppeteer'
 
-import { computedElementToSelector } from "../utils/tools.mjs"
-
+import {convertPathSelector} from '../utils/tools.mjs'
 /**
  * Crawl dữ liệu bằng element được cho
- * ĐÃ VALIDATE DỮ LIỆU
  */
-const crawlData = async (crawler, elements) => {
-    let computedSelectors = computedElementToSelector(elements)
-    console.log('-RUN-CRAWLER: SELECTORS-----\n', computedSelectors);
+const crawlData = async (type, url ,elements) => {
     try {
+        let resultData = []
+        console.log(`-RUN-CRAWLER: ${type}-----\n`, elements);
         /**
          * Khởi tạo browser bằng puppeteer
          */
@@ -27,27 +25,24 @@ const crawlData = async (crawler, elements) => {
         /**
          * Chạy đến trang
          */
-        await page.goto(crawler.urlSingle)
+        await page.goto(url)
 
-        let resultData = await page.evaluate((selectors) => {
-            let data = [];
+        elements.map(async (elem) => {
+            let elHtml;
+            if (type == 'xpath'){
+                await page.waitForXPath(elem.xPath)
 
-            for (let slt of selectors) {
-                let html = document.querySelector(slt.selector)
-                let value = ''
-                if (html) {
-                    value = html.textContent
-                }
-
-                data.push({
-                    index: slt.index,
-                    metadata: slt.metadata,
-                    value
-                })
+                elHtml = await page.$x(elem.xPath)
             }
+            else {
+                let selectorString = convertPathSelector(elem.selectorPath)
+                await page.waitForSelector(selectorString)
 
-            return data
-        }, computedSelectors)
+                elHtml = await page.$(selectorString)
+            }
+            let elContent = await page.evaluate(elHtml => elHtml.textContent, elHtml[0]);
+            resultData.push(elContent)
+        })
 
         await browser.close()
 
@@ -150,7 +145,7 @@ const recordUserEvent = async (url) => {
 
                     element.selectorPath.push(selectorString)
                 }
-                while (element.selectorPath.length > 5) {
+                while (element.selectorPath.length > 2) {
                     element.selectorPath.pop()
                 }
 
@@ -194,7 +189,7 @@ const recordUserEvent = async (url) => {
                  */
                 let elementCounter = 0
                 document.body.addEventListener("click", (event) => {
-                    let result = generateElementData(event, elementCounter);
+                    let result = generateElementData(event, ++elementCounter);
                     window.saveEvent(result);
                     alert('Lưu thành công dữ liệu của element')
                 });

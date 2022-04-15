@@ -154,41 +154,47 @@ export const updateCrawler = async (req, res) => {
 
 /**
 * Mô tả : Crawl dữ liệu bằng element đang có
+* selector - xpath
 * Created by: Nguyễn Hữu Lộc - MF1099
 * Created date: 15:39 10/04/2022
 */
 
 export const runCrawler = async (req, res) => {
     try {
-        const { crawler } = req.body;
+        const { crawlerCode } = req.params
+        let { type } = req.query
+
+        if (!type){
+            type = 'selector' 
+        }
 
         // validate dữ liệu
-        if (!crawler) {
-            return res.status(400).json('Trường thông tin còn thiếu')
+        if (!crawlerCode) {
+            return res.status(400).json('Không tìm thấy mã crawler đầu vào')
         }
 
         // kiểm tra crawler tồn tại
-        let crawlerData = await Crawlers.findOne({ crawlerCode: crawler.crawlerCode })
+        let crawlerData = await Crawlers.findOne({ crawlerCode })
         if (!crawlerData) {
             return res.status(404).json('Không tồn tại crawler')
         }
 
         // lấy dữ liệu element của crawler
-        let elementsData = await Elements.find({crawlerCode: crawler.crawlerCode})
+        let elementsData = await Elements.find({ crawlerCode })
 
         // không đủ dữ liệu
         if (elementsData.length <= 0) {
             return res.status(400).json('Không đủ dữ liệu để crawl. Cần crawl dữ liệu element trước')
         }
 
-        let output = await crawlerService.crawlData(crawler, elementsData)
+        let output = await crawlerService.crawlData(type, crawlerData.urlSingle, elementsData)
         console.log(output);
 
         // biến đổi dạng dữ liệu và lưu vào DB
-        const mappedOutput = mappingOutput(crawler.crawlerCode, output)
+        // const mappedOutput = mappingOutput(crawler.crawlerCode, output)
         
-        const outputData = new Outputs(mappedOutput)
-        await outputData.save()
+        // const outputData = new Outputs(mappedOutput)
+        // await outputData.save()
 
         return res.status(200).json("Crawl dữ liệu thành công")
     } catch (error) {

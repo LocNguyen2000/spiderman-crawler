@@ -11,7 +11,7 @@ router.get('/:crawlerCode', getCrawlerByCode)
 router.delete('/:crawlerCode', deleteCrawler)
 
 router.post('/', addCrawler)
-router.post('/run', runCrawler)
+router.post('/run/:crawlerCode', runCrawler)
 
 router.put('/:crawlerCode', updateCrawler)
 
