@@ -7,6 +7,8 @@ const elementSchema = new mongoose.Schema({
     tag: { type: String },
     id: { type: String },
     className: { type: String },
+    selectorPath: { type: Array},
+    xPath: {type: String},
     eventType: { type: String },
 })
 

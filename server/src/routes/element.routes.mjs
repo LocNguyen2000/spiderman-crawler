@@ -1,11 +1,13 @@
 import { Router } from "express";
 
-import { getElementsByCode, updateElements } from "../controllers/element.controller.mjs"
+import { getElementsByCode, getPageElement, updateElements } from "../controllers/element.controller.mjs"
 
 const router = Router()
 
 router.get('/:crawlerCode', getElementsByCode)
-router.put('/', updateElements)
+
+router.put('/extract/:crawlerCode', getPageElement)
+router.put('/:crawlerCode', updateElements)
 
 export default router
 

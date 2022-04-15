@@ -1,6 +1,6 @@
 import { Router } from "express";
 
-import { getAllCrawlers, getCrawlerByCode, addCrawler, deleteCrawler, updateCrawler, generateNewCrawlerCode, getPageElement, runCrawler } from "../controllers/crawler.controller.mjs";
+import { getAllCrawlers, getCrawlerByCode, addCrawler, deleteCrawler, updateCrawler, generateNewCrawlerCode, runCrawler } from "../controllers/crawler.controller.mjs";
 
 const router = Router()
 
@@ -13,8 +13,7 @@ router.delete('/:crawlerCode', deleteCrawler)
 router.post('/', addCrawler)
 router.post('/run', runCrawler)
 
-router.put('/', updateCrawler)
-router.put('/getPageElement', getPageElement)
+router.put('/:crawlerCode', updateCrawler)
 
 
 

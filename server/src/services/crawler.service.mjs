@@ -6,7 +6,7 @@ import { computedElementToSelector } from "../utils/tools.mjs"
  * Crawl dữ liệu bằng element được cho
  * ĐÃ VALIDATE DỮ LIỆU
  */
- const crawlData = async (crawler, elements) => {
+const crawlData = async (crawler, elements) => {
     let computedSelectors = computedElementToSelector(elements)
     console.log('-RUN-CRAWLER: SELECTORS-----\n', computedSelectors);
     try {
@@ -32,11 +32,11 @@ import { computedElementToSelector } from "../utils/tools.mjs"
         let resultData = await page.evaluate((selectors) => {
             let data = [];
 
-            for (let slt of selectors){
+            for (let slt of selectors) {
                 let html = document.querySelector(slt.selector)
                 let value = ''
-                if (html){
-                     value = html.textContent
+                if (html) {
+                    value = html.textContent
                 }
 
                 data.push({
@@ -85,39 +85,77 @@ const recordUserEvent = async (url) => {
          * dùng để lưu các kết quả là element mà người dùng đã chọn
          */
         await page.exposeFunction('saveEvent', response => {
-            // console.log(response)
-            elementData.push(...response)
+            console.log(response)
+            elementData.push(response)
         });
 
         /**
          * Truyền vào page hàm sự kiện để lưu các hành vi người dùng
          */
         await page.evaluateOnNewDocument(() => {
+        /**
+          * @param element 
+          * lấy kết quả đường đi XPath của 1 element
+          */
+            function getXPathTo(element) {
+                if (element.id !== '')
+                    return 'id("' + element.id + '")';
+                if (element === document.body)
+                    return element.tagName;
+
+                var ix = 0;
+                var siblings = element.parentNode.childNodes;
+                for (var i = 0; i < siblings.length; i++) {
+                    var sibling = siblings[i];
+                    if (sibling === element)
+                        return getXPathTo(element.parentNode) + '/' + element.tagName + '[' + (ix + 1) + ']';
+                    if (sibling.nodeType === 1 && sibling.tagName === element.tagName)
+                        ix++;
+                }
+            }
+
             /**
-             * @param context
+             * @param event
              * Sinh ra selector của element hiện tại
              * Trả về thẻ tag, tên class, id của đối tượng
              */
-            function generateSelector(context, elementIndex) {
-                let elements = []
+            function generateElementData(event, index) {
+                let element = {
+                    index,
+                    tag: event.path[0].localName,
+                    className: event.path[0].className,
+                    id: event.path[0].id,
+                    selectorPath: [],
+                    xPath: getXPathTo(event.target),
+                    eventType: event.type,
+                }
 
-                if (!context) console.log('not an dom reference');
-                
-                for (const path of context.path) {
-                    let elementObject = {
-                        index: elementIndex,
-                        metadata: "",
-                        tag: path.localName,
-                        className: path.className,
-                        id: path.id,
+                for (const node of event.path) {
+                    let tag = node.localName
+                    let className = node.className
+                    let id = node.id
+
+                    let selectorString = ""
+                    if (tag) {
+                        selectorString += tag
                     }
-                    elements.push(elementObject)
+                    if (id) {
+                        selectorString += `#${id}`
+                    }
+                    if (className) {
+                        className = className.replace(" ", ".")
+                        className = "." + className
+                        selectorString += className
+                    }
+
+                    element.selectorPath.push(selectorString)
                 }
-                while (elements.length > 1) {
-                    elements.pop()
+                while (element.selectorPath.length > 5) {
+                    element.selectorPath.pop()
                 }
-                console.log(elements);
-                return elements
+
+                element.selectorPath.reverse()
+                return element
             }
 
             /**
@@ -139,18 +177,29 @@ const recordUserEvent = async (url) => {
              */
             document.addEventListener("DOMContentLoaded", () => {
                 /**
+                 * Disabled tất cả button
+                 */
+                document.body.querySelectorAll('button').forEach(button => {
+                    button.setAttribute('disabled', true)
+                })
+                /**
+                 * Disabled tất cả link a href
+                 */
+                document.body.querySelectorAll('a').forEach(link => {
+                    link.onclick = function () { return false }
+                })
+                /**
                  * Bắt sự kiện click
                  * Lưu lại selector của element
                  */
-                let elementIndex = 0;
+                let elementCounter = 0
                 document.body.addEventListener("click", (event) => {
-                    let result = generateSelector(event, elementIndex);
-                    elementIndex += 1;
+                    let result = generateElementData(event, elementCounter);
                     window.saveEvent(result);
                     alert('Lưu thành công dữ liệu của element')
                 });
                 /**
-                 * Bắt sự kiện chuột di chuyển ra và vào div
+                 *  Sự kiện chuột Hover
                  */
                 document.body.onmouseover = document.body.onmouseout = hoverHandler
             })
@@ -169,6 +218,7 @@ const recordUserEvent = async (url) => {
         console.log(error.message)
         throw error.message
     } finally {
+        console.log("FinalData:", elementData);
         return elementData
     }
 }

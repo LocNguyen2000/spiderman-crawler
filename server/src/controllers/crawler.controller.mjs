@@ -31,7 +31,7 @@ export const getAllCrawlers = async (req, res) => {
 }
 export const getCrawlerByCode = async (req, res) => {
     try {
-        const { crawlerCode } = req.query;
+        const { crawlerCode } = req.params;
 
         const crawlerData = await Crawlers.findOne({ crawlerCode })
 
@@ -45,7 +45,7 @@ export const getCrawlerByCode = async (req, res) => {
 }
 export const deleteCrawler = async (req, res) => {
     try {
-        const { crawlerCode } = req.query
+        const { crawlerCode } = req.params
 
         if (!crawlerCode) {
             return res.status(404).json('Trường thông tin gửi không được để trống')
@@ -102,7 +102,7 @@ export const addCrawler = async (req, res) => {
 // Cập nhật theo 2 dữ liệu crawler và element
 export const updateCrawler = async (req, res) => {
     try {
-        // lấy tham số trong body của request
+        const { crawlerCode } = req.params
         let { crawler, elements } = req.body
 
         if (!crawler) {
@@ -110,18 +110,27 @@ export const updateCrawler = async (req, res) => {
         }
 
         // kiểm tra crawler tồn tại
-        let crawlerData = await Crawlers.findOne({ crawlerCode: crawler.crawlerCode })
+        let crawlerData = await Crawlers.findOne({ crawlerCode })
         if (!crawlerData) {
             return res.status(404).json('Không tồn tại crawler')
         }
 
+        // kiểm tra mã crawler cập nhật có tồn tại 
+        if (crawler.crawlerCode && crawlerCode != crawlerData.crawlerCode){
+            crawlerData = await Crawlers.findOne({ crawlerCode: crawler.crawlerCode })
+            if (crawlerData){
+                return res.status(404).json('Mã crawler cập nhật đã tồn tại')
+            }
+        }
+
         // cập nhật dựa trên tên của crawler
         crawlerData = await Crawlers.updateOne({
-            crawlerCode: crawler.crawlerCode
+            crawlerCode
         }, crawler)
 
         // cập nhật nhiều elements (xóa hết r tạo lại)      
         await Elements.deleteMany({ crawlerCode: crawler.crawlerCode })
+
         // tạo mới nhiều elements
         elements.map(async (element) => {
             element.crawlerCode = crawlerData.crawlerCode
@@ -140,54 +149,6 @@ export const updateCrawler = async (req, res) => {
     } catch (error) {
         console.log(error);
         return res.status(400).json(`Request có vấn đề ${error.message}`)
-    }
-}
-
-// Cập nhật theo 1 dữ liệu Element
-/**
- * Hàm chạy api để lấy element bằng hàm lưu sự kiện user
- * @param req: Chứa url cần để chạy method  
- */
-export const getPageElement = async (req, res) => {
-    try {
-        // 1. Lấy page Url
-        let { crawlerCode } = req.body
-
-        if (!crawlerCode) {
-            return res.status(404).json('Trường thông tin còn thiếu')
-        }
-
-        let crawlerData = await Crawlers.findOne({ crawlerCode })
-        if (!crawlerData) {
-            return res.status(404).json('Không tồn tại crawler')
-        }
-
-        // 2. chạy hàm 
-        let elements = await crawlerService.recordUserEvent(crawlerData.urlSingle)
-        console.log(elements);
-
-        if (elements.length == 0) return res.status(200).json([])
-
-        // cập nhật nhiều elements (xóa hết r tạo lại)      
-        await Elements.deleteMany({ crawlerCode })
-        // tạo mới nhiều elements
-        elements.map(async (element) => {
-            element.crawlerCode = crawlerData.crawlerCode
-
-            // validate element
-            // ...
-
-            const newElement = new Elements(element)
-            await newElement.save()
-        })
-
-        // Truy vấn lại crawler đã được cập nhật
-        console.log("Cập nhật crawler:", crawlerData);
-
-        return res.status(200).json("Lấy element thành công")
-    } catch (error) {
-        console.error(error);
-        return res.status(400).json(`Lỗi lấy element của trang: ${error.message}`)
     }
 }
 
