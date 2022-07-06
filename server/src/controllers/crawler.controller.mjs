@@ -1,6 +1,6 @@
-import { Crawlers, Elements, Outputs } from "../model/index.mjs";
-import crawlerService from "../services/crawler.service.mjs";
-import { generateCrawlerCode, mappingOutput } from "../utils/tools.mjs";
+import { Crawlers, Selectors, Data } from "../model/index.mjs";
+import { scraper } from "../services/crawler.mjs";
+import { generateCrawlerCode } from "../utils/tools.mjs";
 
 export const generateNewCrawlerCode = async (req, res) => {
     try {
@@ -34,10 +34,16 @@ export const getCrawlerByCode = async (req, res) => {
         const { crawlerCode } = req.params;
 
         const crawlerData = await Crawlers.findOne({ crawlerCode })
+        const selectorsData = await Selectors.find({ crawlerCode })
 
         if (!crawlerData) return res.status(404).json("Không tồn tại Crawler")
 
-        return res.status(200).json(crawlerData)
+        let result = {
+            crawler: crawlerData,
+            selectors: selectorsData
+        }
+
+        return res.status(200).json(result)
     } catch (error) {
         console.error(error);
         return res.status(500).json("Lỗi của Server. Xin liên hệ dev để xử lý vấn đề này")
@@ -58,7 +64,7 @@ export const deleteCrawler = async (req, res) => {
         }
 
         await Crawlers.deleteOne({ crawlerCode })
-        await Elements.deleteMany({ crawlerCode })
+        await Selectors.deleteMany({ crawlerCode })
 
         return res.status(200).json("Đã xóa thành công")
     } catch (error) {
@@ -70,7 +76,7 @@ export const deleteCrawler = async (req, res) => {
 // Tạo mới 2 dữ liệu crawler và element
 export const addCrawler = async (req, res) => {
     try {
-        let { crawler, elements } = req.body
+        let { crawler, selectors } = req.body
 
         // validate dữ liệu 
         const crawlerData = await Crawlers.findOne({ crawlerCode: crawler.crawlerCode })
@@ -81,15 +87,12 @@ export const addCrawler = async (req, res) => {
             const newCrawler = new Crawlers(crawler)
             await newCrawler.save()
 
-            // tạo mới nhiều elements
-            elements.map(async (element) => {
-                element.crawlerCode = crawler.crawlerCode
+            // tạo mới nhiều selectors
+            selectors.map(async (selector) => {
+                selector.crawlerCode = crawler.crawlerCode
 
-                // validate element
-                // ...
-
-                const newElement = new Elements(element)
-                await newElement.save()
+                const newSelector = new Selectors(selector)
+                await newSelector.save()
             })
         }
         return res.status(201).json("Tạo mới Crawler thành công")
@@ -99,11 +102,11 @@ export const addCrawler = async (req, res) => {
     }
 }
 
-// Cập nhật theo 2 dữ liệu crawler và element
+// Cập nhật theo 2 dữ liệu crawler và selector
 export const updateCrawler = async (req, res) => {
     try {
         const { crawlerCode } = req.params
-        let { crawler, elements } = req.body
+        let { crawler, selectors } = req.body
 
         if (!crawler) {
             return res.status(404).json('Trường thông tin còn thiếu')
@@ -128,17 +131,14 @@ export const updateCrawler = async (req, res) => {
             crawlerCode
         }, crawler)
 
-        // cập nhật nhiều elements (xóa hết r tạo lại)      
-        await Elements.deleteMany({ crawlerCode: crawler.crawlerCode })
+        // cập nhật nhiều selectors (xóa hết r tạo lại)      
+        await Selectors.deleteMany({ crawlerCode: crawler.crawlerCode })
 
-        // tạo mới nhiều elements
-        elements.map(async (element) => {
-            element.crawlerCode = crawlerData.crawlerCode
+        // tạo mới nhiều selectors
+        selectors.map(async (selector) => {
+            selector.crawlerCode = crawlerData.crawlerCode
 
-            // validate element
-            // ...
-
-            const newElement = new Elements(element)
+            const newElement = new Selectors(selector)
             await newElement.save()
         })
 
@@ -153,7 +153,7 @@ export const updateCrawler = async (req, res) => {
 }
 
 /**
-* Mô tả : Crawl dữ liệu bằng element đang có
+* Mô tả : Crawl dữ liệu bằng selector đang có
 * selector - xpath
 * Created by: Nguyễn Hữu Lộc - MF1099
 * Created date: 15:39 10/04/2022
@@ -162,11 +162,6 @@ export const updateCrawler = async (req, res) => {
 export const runCrawler = async (req, res) => {
     try {
         const { crawlerCode } = req.params
-        let { type } = req.query
-
-        if (!type){
-            type = 'selector' 
-        }
 
         // validate dữ liệu
         if (!crawlerCode) {
@@ -179,24 +174,24 @@ export const runCrawler = async (req, res) => {
             return res.status(404).json('Không tồn tại crawler')
         }
 
-        // lấy dữ liệu element của crawler
-        let elementsData = await Elements.find({ crawlerCode })
+        // lấy dữ liệu selector của crawler
+        let selectorsData = await Selectors.find({ crawlerCode })
 
         // không đủ dữ liệu
-        if (elementsData.length <= 0) {
-            return res.status(400).json('Không đủ dữ liệu để crawl. Cần crawl dữ liệu element trước')
+        if (selectorsData.length <= 0) {
+            return res.status(400).json('Không đủ dữ liệu để crawl. Cần crawl dữ liệu selector trước')
         }
 
-        let output = await crawlerService.crawlData(type, crawlerData.urlSingle, elementsData)
-        console.log(output);
-
-        // biến đổi dạng dữ liệu và lưu vào DB
-        // const mappedOutput = mappingOutput(crawler.crawlerCode, output)
+        let output = await scraper(crawlerData.selectorType, crawlerData.urls, selectorsData)
         
-        // const outputData = new Outputs(mappedOutput)
-        // await outputData.save()
+        // save dữ liệu
+        let data = new Data ({
+            crawlerCode,
+            data: output
+        })
+        await data.save()
 
-        return res.status(200).json("Crawl dữ liệu thành công")
+        return res.status(200).json(data)
     } catch (error) {
         console.error(error);
         return res.status(400).json(`Có vấn đề với request: ${error.message}`)

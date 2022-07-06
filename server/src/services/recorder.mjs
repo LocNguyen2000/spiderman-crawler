@@ -1,64 +1,11 @@
-import puppeteer from 'puppeteer'
-
-import {convertPathSelector} from '../utils/tools.mjs'
-/**
- * Crawl dữ liệu bằng element được cho
- */
-const crawlData = async (type, url ,elements) => {
-    try {
-        let resultData = []
-        console.log(`-RUN-CRAWLER: ${type}-----\n`, elements);
-        /**
-         * Khởi tạo browser bằng puppeteer
-         */
-        const browser = await puppeteer.launch({
-            headless: false,
-            defaultViewport: null,
-            args: ['--start-maximized'],
-        })
-        const page = await browser.newPage();
-        await page.setViewport({
-            width: 1560,
-            height: 1000,
-        })
-
-        /**
-         * Chạy đến trang
-         */
-        await page.goto(url)
-
-        elements.map(async (elem) => {
-            let elHtml;
-            if (type == 'xpath'){
-                await page.waitForXPath(elem.xPath)
-
-                elHtml = await page.$x(elem.xPath)
-            }
-            else {
-                let selectorString = convertPathSelector(elem.selectorPath)
-                await page.waitForSelector(selectorString)
-
-                elHtml = await page.$(selectorString)
-            }
-            let elContent = await page.evaluate(elHtml => elHtml.textContent, elHtml[0]);
-            resultData.push(elContent)
-        })
-
-        await browser.close()
-
-        return resultData
-    } catch (error) {
-        console.log(error.message)
-        throw error.message
-    }
-}
-
 
 /**
  * Hàm lưu sự kiện người dùng
  * @param url 
  */
-const recordUserEvent = async (url) => {
+export const recorder = async (url) => {
+    let startTimer = performance.now();
+
     let elementData = []
     try {
         /**
@@ -66,14 +13,17 @@ const recordUserEvent = async (url) => {
          */
         const browser = await puppeteer.launch({
             headless: false,
-            defaultViewport: null,
-            args: ['--start-maximized'],
+            args: [`--window-size=1920,1080`],
+            defaultViewport: {
+                width: 1920,
+                height: 1080
+            }
         })
         const page = await browser.newPage();
-        await page.setViewport({
-            width: 1560,
-            height: 1000,
-        })
+
+        let pageOpenTimer = performance.now();
+        let pagePfm = ((pageOpenTimer - startTimer)/ 1000).toExponential(4)
+        console.log('Browser & page open after %d', pagePfm);
 
         /**
          * Tiêm vào window 1 hàm của module recordEvent2
@@ -88,15 +38,45 @@ const recordUserEvent = async (url) => {
          * Truyền vào page hàm sự kiện để lưu các hành vi người dùng
          */
         await page.evaluateOnNewDocument(() => {
-        /**
-          * @param element 
-          * lấy kết quả đường đi XPath của 1 element
-          */
+            /**
+             * lấy kết quả CSS của 1 element
+             */
+            function getCssTo(context) {
+                console.log(context);
+                
+                let pathSelector = []
+                if (context == 'null') throw 'not an dom reference'
+                while (context.tagName) {
+                    // selector path
+                    const className = context.className
+                    const idName = context.id
+                    const tagName = context.tagName
+
+                    if (tagName === 'BODY') pathSelector.push('body')
+                    else {
+                        pathSelector.push(
+                            tagName.toLowerCase() +
+                            (className ? `.${className}` : '') +
+                            (idName ? `#${idName}` : '')
+                        )
+                    }
+                    context = context.parentNode
+                }
+                if (pathSelector.length > 3) {
+                    pathSelector = pathSelector.slice(0, 3)
+                }
+                pathSelector.reverse()
+                let result = pathSelector.join(' ')
+                return result
+            }
+            /**
+              * lấy kết quả đường đi XPath của 1 element
+              */
             function getXPathTo(element) {
-                if (element.id !== '')
-                    return 'id("' + element.id + '")';
+                if (element.tagName == 'HTML')
+                    return '/HTML[1]';
                 if (element === document.body)
-                    return element.tagName;
+                    return '/HTML[1]/BODY[1]';
 
                 var ix = 0;
                 var siblings = element.parentNode.childNodes;
@@ -110,46 +90,20 @@ const recordUserEvent = async (url) => {
             }
 
             /**
-             * @param event
              * Sinh ra selector của element hiện tại
              * Trả về thẻ tag, tên class, id của đối tượng
              */
-            function generateElementData(event, index) {
+            function generateSelector(event, index) {
+                console.log(event);
+
                 let element = {
                     index,
+                    metadata: "",
                     tag: event.path[0].localName,
-                    className: event.path[0].className,
-                    id: event.path[0].id,
-                    selectorPath: [],
-                    xPath: getXPathTo(event.target),
+                    selectorXPath: getXPathTo(event.target),
+                    selectorCSS: getCssTo(event.target),
                     eventType: event.type,
                 }
-
-                for (const node of event.path) {
-                    let tag = node.localName
-                    let className = node.className
-                    let id = node.id
-
-                    let selectorString = ""
-                    if (tag) {
-                        selectorString += tag
-                    }
-                    if (id) {
-                        selectorString += `#${id}`
-                    }
-                    if (className) {
-                        className = className.replace(" ", ".")
-                        className = "." + className
-                        selectorString += className
-                    }
-
-                    element.selectorPath.push(selectorString)
-                }
-                while (element.selectorPath.length > 2) {
-                    element.selectorPath.pop()
-                }
-
-                element.selectorPath.reverse()
                 return element
             }
 
@@ -161,9 +115,11 @@ const recordUserEvent = async (url) => {
             function hoverHandler(event) {
                 if (event.type == "mouseover") {
                     event.target.style.outline = "2px dashed #019160";
+                    event.target.title = event.target.nodeName;
                 }
                 else if (event.type == "mouseout") {
                     event.target.style.outline = "none";
+                    event.target.removeAttribute('title');
                 }
             }
 
@@ -189,15 +145,20 @@ const recordUserEvent = async (url) => {
                  */
                 let elementCounter = 0
                 document.body.addEventListener("click", (event) => {
-                    let result = generateElementData(event, ++elementCounter);
+                    console.log('Extracting Element');
+
+                    let result = generateSelector(event, ++elementCounter);
+                    console.log(result);
                     window.saveEvent(result);
-                    alert('Lưu thành công dữ liệu của element')
+                    alert('Selector extracted')
                 });
                 /**
                  *  Sự kiện chuột Hover
                  */
                 document.body.onmouseover = document.body.onmouseout = hoverHandler
             })
+
+
         });
 
         await page.goto(url)
@@ -212,26 +173,15 @@ const recordUserEvent = async (url) => {
     } catch (error) {
         console.log(error.message)
         throw error.message
-    } finally {
-        console.log("FinalData:", elementData);
+    }
+    finally {
+        let endTimer = performance.now();
+
+        let pfm = ((endTimer - startTimer)/ 1000).toExponential(4)
+        console.log("Record selector done in %d second.", pfm )
+
+        console.log(elementData);
+
         return elementData
     }
-}
-
-/**
- * Validate dữ liệu crawler 
- */
-const validateRequiredCrawler = (crawler) => {
-    const { crawlerCode, crawlerName, urlSingle } = crawler
-    if (crawlerCode && crawlerName && urlSingle) {
-        // cần validate thêm
-
-        // trả về crawler.
-        return crawler
-    }
-    return null
-}
-
-export default {
-    recordUserEvent, validateRequiredCrawler, crawlData
 }
