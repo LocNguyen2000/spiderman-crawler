@@ -1,7 +1,7 @@
 import { Crawlers, Selectors } from "../model/index.mjs";
 import { recorder } from "../services/recorder.mjs";
 
-export const getElementsByCode = async (req, res) => {
+export const getSelectorsByCode = async (req, res) => {
     try {
         const { crawlerCode } = req.params
 
@@ -48,26 +48,27 @@ export const getElementsByCode = async (req, res) => {
         }
 
         // 2. chạy hàm 
-        let selectors = await recorder(crawlerData.urls[0])
-        console.log(selectors);
+        let extractedSelectors = await recorder.run(crawlerData.urls[0])
+        
+        console.log('Lấy selectors của trang...');
+        console.log(extractedSelectors);
 
-        if (selectors.length == 0) return res.status(200).json([])
+        if (extractedSelectors.length == 0) return res.status(200).json([])
 
         // cập nhật nhiều selectors (xóa hết r tạo lại)      
         await Selectors.deleteMany({ crawlerCode })
         
         // tạo mới nhiều selectors
-        selectors.map(async (selector) => {
+        extractedSelectors.map(async (selector) => {
             selector.crawlerCode = crawlerData.crawlerCode
+
+            console.log(selector);
 
             const newElement = new Selectors(selector)
             await newElement.save()
         })
 
-        // Truy vấn lại crawler đã được cập nhật
-        console.log("Cập nhật crawler:", crawlerData);
-
-        return res.status(200).json("Lấy selector thành công")
+        return res.status(200).json(extractedSelectors)
     } catch (error) {
         console.error(error);
         return res.status(400).json(`Lỗi lấy selector của trang: ${error.message}`)
@@ -94,6 +95,7 @@ export const updateElements = async (req, res) => {
         await Selectors.deleteMany({ crawlerCode: crawlerData.crawlerCode })
         
         // tạo mới nhiều selectors
+
         selectors.map(async (selector) => {
             selector.crawlerCode = crawlerData.crawlerCode
 

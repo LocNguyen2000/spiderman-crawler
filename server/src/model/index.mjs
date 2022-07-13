@@ -20,10 +20,10 @@ const crawlerSchema = new mongoose.Schema({
     crawlerCode: { type: String, required: true, unique: true},
     crawlerName: { type: String, required: true },
     selectorType: { type: String },
-    contentType: { type: String },
     urls: { type: Array },
     description: {type: String },
-    modifiedDate: { type: Date }
+    modifiedDate: { type: Date },
+    performance: {type: String}
 })
 
 export const Crawlers = mongoose.model('crawler', crawlerSchema)

@@ -1,6 +1,7 @@
 import express from 'express'
 import cors from 'cors'
 import mongoose from 'mongoose'
+import fileUpload from 'express-fileupload'
 
 import crawlerRouter from './routes/crawler.routes.mjs'
 
@@ -12,6 +13,7 @@ mongoose.connect('mongodb://localhost:27017/crawlers')
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 app.use(cors())
+app.use(fileUpload())
 
 app.use('/crawler', crawlerRouter)
 

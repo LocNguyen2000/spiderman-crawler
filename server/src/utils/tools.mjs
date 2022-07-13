@@ -14,3 +14,18 @@ export const generateCrawlerCode = (dataLength) => {
     return code
 }
 
+export const processOutput = (arr) =>  {
+    let final = []
+
+    arr.map(obj => {
+        let keys = Object.keys(obj)
+        for (let i = 0; i < obj[keys[0]].length; i++) {
+            let result = {}
+            for (let key of keys){
+                result[key] = obj[key][i]
+            }
+            final.push(result)
+        } 
+    })
+    return final;
+}
