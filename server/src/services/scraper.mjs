@@ -1,5 +1,5 @@
-// import puppeteer from 'puppeteer'
-import puppeteer from 'puppeteer-extra'
+import puppeteer from 'puppeteer'
+// import puppeteer from 'puppeteer-extra'
 // import StealthPlugin from 'puppeteer-extra-plugin-stealth'
 
 const minimal_args = [
@@ -13,6 +13,8 @@ export const scraper = {
     browser: null,
     async initBrowser() {
         try {
+            // puppeteer.use(StealthPlugin())
+
             const browser = await puppeteer.launch({
                 headless: false,
                 args: minimal_args,
@@ -50,7 +52,6 @@ export const scraper = {
         try {
             let resultData = []
 
-            // puppeteer.use(StealthPlugin())
             /**
              * Khởi tạo browser bằng puppeteer
              */
