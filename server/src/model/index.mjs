@@ -7,7 +7,8 @@ const selectorSchema = new mongoose.Schema({
     tag: {type: String},
     selectorXPath: {type: String},
     selectorCSS: {type: String},
-    eventType: {type: String}
+    eventType: {type: String},
+    modifiedDate: { type: Date }
 })
 
 const dataSchema = new mongoose.Schema({

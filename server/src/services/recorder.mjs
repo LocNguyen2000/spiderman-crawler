@@ -1,4 +1,5 @@
-import puppeteer from 'puppeteer'
+import puppeteer from 'puppeteer-extra'
+import StealthPlugin from 'puppeteer-extra-plugin-stealth'
 
 /**
  * Hàm lưu sự kiện người dùng
@@ -21,7 +22,6 @@ export const recorder = {
             console.log('Error when open browser');
         }
     },
-   
     async run(url) {
         let startTimer = performance.now();
     
@@ -30,9 +30,12 @@ export const recorder = {
             /**
              * Khởi tạo browser bằng puppeteer
              */
+             puppeteer.use(StealthPlugin())
+
             this.browser = await this.initBrowser();
 
             const page = await this.browser.newPage();
+
             await page.setViewport({
                 width: 1920,
                 height: 1080
@@ -55,6 +58,19 @@ export const recorder = {
              * Truyền vào page hàm sự kiện để lưu các hành vi người dùng
              */
             await page.evaluateOnNewDocument(() => {
+                // get index for nth of type element
+                function getIndex(element) {
+                    let ix = 0;
+                    let siblings = element.parentNode.childNodes
+                    for (var i = 0; i < siblings.length; i++) {
+                        var sibling = siblings[i];
+                        if (sibling === element)
+                            return (ix + 1)
+                        if (sibling.nodeType === 1 && sibling.tagName === element.tagName)
+                            ix++;
+                    }
+                    return (ix + 1)
+                }
                 /**
                  * lấy kết quả CSS của 1 element
                  */
@@ -70,6 +86,16 @@ export const recorder = {
                         const tagName = context.tagName
     
                         if (tagName === 'BODY') pathSelector.push('body')
+                        else if (tagName === 'TD' || tagName === 'TR' || tagName === 'TH'){
+                            let index  = getIndex(context);
+
+                            pathSelector.push(
+                                tagName.toLowerCase() +
+                                (className ? `.${className}` : '') +
+                                (idName ? `#${idName}` : '') +
+                                `:nth-of-type(${index})`
+                            )
+                        }
                         else {
                             pathSelector.push(
                                 tagName.toLowerCase() +
@@ -79,8 +105,8 @@ export const recorder = {
                         }
                         context = context.parentNode
                     }
-                    if (pathSelector.length > 3) {
-                        pathSelector = pathSelector.slice(0, 3)
+                    if (pathSelector.length > 4) {
+                        pathSelector = pathSelector.slice(0, 4)
                     }
                     pathSelector.reverse()
                     let result = pathSelector.join(' ')
@@ -177,8 +203,7 @@ export const recorder = {
             });
             console.log('Go to %d ...', url);
             await page.goto(url)
-            await page
-                .waitForNavigation()
+            await page.waitForNavigation()
                 .then(async () => {
                     await this.browser.close()
                 })
@@ -186,6 +211,8 @@ export const recorder = {
                     console.log('Navigation done...')
                 })
         } catch (error) {
+            await this.browser.close()
+
             console.log(error.message)
             throw error
         }

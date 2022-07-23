@@ -5,11 +5,22 @@ export const checkCrawlerCode = (crawlerCode) => {
     return result
 }
 
-export const generateCrawlerCode = (dataLength) => {
+export const generateCrawlerCode = (data) => {
     let code = ""
+    let max = 0
+    // dataLength = String(dataLength + 1)
+    data.map(obj => {
+        let value = obj.crawlerCode.replace( /^\D+/g, '')
 
-    dataLength = String(dataLength + 1)
-    code = dataLength.padStart(4, '0')
+        value = parseInt(value)
+
+        if (value > max){
+            max = value;
+        }
+    })
+
+
+    code = (max+1).toString().padStart(4, '0')
 
     return code
 }
@@ -22,7 +33,12 @@ export const processOutput = (arr) =>  {
         for (let i = 0; i < obj[keys[0]].length; i++) {
             let result = {}
             for (let key of keys){
-                result[key] = obj[key][i]
+                if (obj[key][i] != null || obj[key][i] != undefined){
+                    result[key] = obj[key][i]
+                }
+                else {
+                    result[key] = ""
+                }
             }
             final.push(result)
         } 

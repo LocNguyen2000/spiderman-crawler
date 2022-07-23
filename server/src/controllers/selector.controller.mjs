@@ -61,6 +61,7 @@ export const getSelectorsByCode = async (req, res) => {
         // tạo mới nhiều selectors
         extractedSelectors.map(async (selector) => {
             selector.crawlerCode = crawlerData.crawlerCode
+            selector.modifiedDate = new Date()
 
             console.log(selector);
 
@@ -98,6 +99,7 @@ export const updateElements = async (req, res) => {
 
         selectors.map(async (selector) => {
             selector.crawlerCode = crawlerData.crawlerCode
+            selector.modifiedDate = new Date()
 
             const newElement = new Selectors(selector)
             await newElement.save()

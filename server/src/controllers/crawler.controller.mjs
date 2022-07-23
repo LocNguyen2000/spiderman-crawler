@@ -7,7 +7,7 @@ export const generateNewCrawlerCode = async (req, res) => {
     try {
         const crawlerData = await Crawlers.find()
 
-        const newCode = generateCrawlerCode(crawlerData.length)
+        const newCode = generateCrawlerCode(crawlerData)
 
         console.log(newCode);
 
@@ -92,6 +92,7 @@ export const deleteCrawler = async (req, res) => {
 
         await Crawlers.deleteOne({ crawlerCode })
         await Selectors.deleteMany({ crawlerCode })
+        await Data.deleteOne({ crawlerCode })
 
         return res.status(200).json("Đã xóa thành công")
     } catch (error) {
@@ -119,6 +120,7 @@ export const addCrawler = async (req, res) => {
             // tạo mới nhiều selectors
             selectors.map(async (selector) => {
                 selector.crawlerCode = crawler.crawlerCode
+                selector.modifiedDate = new Date()
 
                 const newSelector = new Selectors(selector)
                 await newSelector.save()
@@ -130,6 +132,7 @@ export const addCrawler = async (req, res) => {
         return res.status(400).json(`Lỗi tạo mới Crawerl: ${error.message}`)
     }
 }
+
 
 // Cập nhật theo 2 dữ liệu crawler và selector
 export const updateCrawler = async (req, res) => {
@@ -168,6 +171,7 @@ export const updateCrawler = async (req, res) => {
         // tạo mới nhiều selectors
         selectors.map(async (selector) => {
             selector.crawlerCode = crawlerCode
+            selector.modifiedDate = new Date()
 
             const newElement = new Selectors(selector)
             await newElement.save()
@@ -217,7 +221,7 @@ export const runCrawler = async (req, res) => {
         let output = await scraper.run(crawlerData.selectorType, crawlerData.urls, selectorsData)
         
         let result = processOutput(output.data);
-        console.log('Processing Output...\n', result);
+        console.log('Processing Output...\n', result.length > 0 ? result[1] : result);
         
         // update hiệu năng crawler
         crawlerData.performance = output.performance;
